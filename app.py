@@ -171,5 +171,3 @@ x='Date:T',
 
     with tab3:            st.area_chart(df.set_index('Date')[['Solid Generate', 'Mud Cutting Ratio']])
         # Download
-        csv = df.to_csv(index=False).encode('utf-8')
-        st.download_button("Download CSV", csv, "fluid_kpis_ml.csv", "text/csv")
