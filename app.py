@@ -35,17 +35,22 @@ def extract_info_from_pdf(file):
     data['Reserve'] = safe_search(r"Reserve\s+\*\s+([\d.]+)", text)
     data['Losses'] = float(safe_search(r"SCE\s+([\d.]+)", text) or 0)
     data['Mud Flow'] = safe_search(r"gpm\s+([\d.]+)", text)
-    data['PV'] = safe_search(r"PV\s+@?\s*\d*\s*([0-9.]+)", text)
-    data['YP'] = safe_search(r"YP\s+lb/100ft²\s+([0-9.]+)", text)
-    data['Mud Weight'] = safe_search(r"Density\s+@?\s*\d*\s*([0-9.]+)", text)
-    data['Ave Temp'] = safe_search(r"Fl Temp\s*([0-9.]+)", text)
-    data['Pump 1 GPM'] = safe_search(r"Pump 1.*?[Gg]PM\s*[:=]?\s*([\d.]+)", text)
-    data['Pump 2 GPM'] = safe_search(r"Pump 2.*?[Gg]PM\s*[:=]?\s*([\d.]+)", text)
-    data['Pump 3 GPM'] = safe_search(r"Pump 3.*?[Gg]PM\s*[:=]?\s*([\d.]+)", text)
-    data['Pump 2 GPM'] = safe_search(r"PZ 11 Pump 2.*?gpm\s+([\d.]+)", text)
-    data['Pump 3 GPM'] = safe_search(r"PZ 11 Pump 3.*?gpm\s+([\d.]+)", text)
-    data['API Screen'] = safe_search(r"API\s+Mesh\s+([\d]+)", text)
-    data['Screen Count'] = safe_search(r"Screen Count\s+([\d]+)", text)
+    pv_match = re.search(r"PV\s*@\s*°F\s*[:=]?\s*([0-9.]+)", text)
+    data['PV'] = pv_match.group(1) if pv_match else '0'
+    yp_match = re.search(r"YP\s+lb/100ft²\s*([0-9.]+)", text)
+    data['YP'] = yp_match.group(1) if yp_match else '0'
+    mw_match = re.search(r"Density\s+@\s*°F\s*([0-9.]+)", text)
+    data['Mud Weight'] = mw_match.group(1) if mw_match else '0'
+    temp_match = re.search(r"Fl Temp\s*[°F]*\s*([0-9.]+)", text)
+    data['Ave Temp'] = temp_match.group(1) if temp_match else '0'
+    gpm_match = re.findall(r"GPM\s+([0-9.]+)", text)
+    data['Pump 1 GPM'] = gpm_match[2] if len(gpm_match) > 2 else '0'
+    data['Pump 2 GPM'] = gpm_match[0] if len(gpm_match) > 0 else '0'
+    data['Pump 3 GPM'] = gpm_match[1] if len(gpm_match) > 1 else '0'
+    screen_lines = re.findall(r"(NOV|Derrick).*?(\d+\s+\d+\s+\d+\s+\d+)", text)
+    api_screens = [int(x) for _, block in screen_lines for x in re.findall(r"\d+", block)]
+    data['API Screen'] = str(sum(api_screens) / len(api_screens)) if api_screens else '0'
+    data['Screen Count'] = str(len(api_screens))
     return data
 
 def to_float(val, default=0.0):
@@ -96,9 +101,23 @@ if uploaded_files:
         df['GPM Total'] = df[['Pump 1 GPM', 'Pump 2 GPM', 'Pump 3 GPM']].sum(axis=1)
         df['API Screen'] = df['API Screen'].apply(to_float)
         df['GPM/Screen'] = df['GPM Total'] / df['Screen Count'].replace(0, 1)
+        df['Top Deck Wear'] = (df['GPM Total'] * df['LGS%']) / df['API Screen'].replace(0, 100)
+        df['Bottom Deck Wear'] = (df['GPM/Screen'] * 0.8).clip(upper=100)
         df['API Screen'] = df['API Screen'].apply(to_float)
 
         st.dataframe(df)
+
+        st.subheader("📋 Daily Summary Report by Well")
+        summary = df.groupby(['Date', 'Well Name']).agg({
+            'Total Circ': 'sum',
+            'LGS%': 'mean',
+            'DSRE%': 'mean',
+            'Total SCE': 'sum',
+            'ROP': 'mean',
+            'Top Deck Wear': 'mean',
+            'Bottom Deck Wear': 'mean'
+        }).round(2).reset_index()
+        st.dataframe(summary)
 
         tab1, tab2, tab3, tab4, tab5 = st.tabs(["ROP & Flow", "Dilution", "Solids", "Recommendations", "Combined"])
 
