@@ -125,10 +125,9 @@ if uploaded_files:
                 st.markdown("- 🚨 High SCE: evaluate discard routes and treatment.")
 
         with tab5:
-
-        fig = go.Figure()
-        fig.add_trace(go.Bar(x=df['Date'], y=df['GPM Total'], name='GPM Total', marker_color='indianred'))
-        fig.add_trace(go.Scatter(x=df['Date'], y=df['PV'], name='PV', mode='lines+markers', line=dict(color='blue')))
-        fig.add_trace(go.Scatter(x=df['Date'], y=df['YP'], name='YP', mode='lines+markers', line=dict(color='green')))
-        fig.update_layout(title='PV, YP and GPM Total (Combo View)', yaxis_title='Value', barmode='overlay')
-        st.plotly_chart(fig, use_container_width=True)
+            fig = go.Figure()
+            fig.add_trace(go.Bar(x=df['Date'], y=df['GPM Total'], name='GPM Total', marker_color='indianred'))
+            fig.add_trace(go.Scatter(x=df['Date'], y=df['PV'], name='PV', mode='lines+markers', line=dict(color='blue')))
+            fig.add_trace(go.Scatter(x=df['Date'], y=df['YP'], name='YP', mode='lines+markers', line=dict(color='green')))
+            fig.update_layout(title='PV, YP and GPM Total (Combo View)', yaxis_title='Value', barmode='overlay')
+            st.plotly_chart(fig, use_container_width=True)
