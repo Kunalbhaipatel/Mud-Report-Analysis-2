@@ -81,15 +81,25 @@ if uploaded_files:
             st.header("🔍 Filters")
             well_options = df['Well Name'].dropna().unique().tolist()
             selected_wells = st.multiselect("Select Well(s)", well_options, default=well_options)
-            date_range = st.date_input("Select Date Range", [df['Date'].min(), df['Date'].max()])
 
         df = df[df['Well Name'].isin(selected_wells)]
-        df = df[(df['Date'] >= pd.to_datetime(date_range[0])) & (df['Date'] <= pd.to_datetime(date_range[1]))]
         df['Date'] = pd.to_datetime(df['Date'])
         df.sort_values('Date', inplace=True)
 
         st.success("✅ Data Extracted!")
         st.dataframe(df)
+
+        # Excel Export
+        try:
+            import io
+            from openpyxl import Workbook
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False, sheet_name='DrillingData')
+            excel_data = output.getvalue()
+            st.download_button("📥 Download Excel", data=excel_data, file_name="drilling_data.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        except Exception as e:
+            st.warning(f"Excel export unavailable: {e}")
 
         # Convert fields
         for col in ['LGS%', 'PV', 'YP', 'Mud Flow', 'Losses', 'Base Oil', 'Water', 'Chemical', 'Total Circ', 'Drilling Hrs', 'MD (ft)']:
@@ -110,16 +120,16 @@ if uploaded_files:
         tab1, tab2, tab3, tab4 = st.tabs(["ROP & Rheology", "Dilution & Losses", "Solids & Screens", "🧠 Recommendations"])
 
         with tab1:
-            st.plotly_chart(px.line(df, x='Date', y='ROP', markers=True, title="ROP Over Time"), use_container_width=True)
-            st.plotly_chart(px.line(df, x='Date', y='Mud Flow', markers=True, title="Mud Flow Rate"), use_container_width=True)
+            st.plotly_chart(px.line(df, x='Date', y='ROP', markers=True, title="ROP Over Time", color='Well Name'), use_container_width=True, color='Well Name')
+            st.plotly_chart(px.line(df, x='Date', y='Mud Flow', markers=True, title="Mud Flow Rate", color='Well Name'), use_container_width=True, color='Well Name')
 
         with tab2:
-            st.plotly_chart(px.area(df, x='Date', y='Total Dilution', title="Total Dilution Volume"), use_container_width=True)
-            st.plotly_chart(px.line(df, x='Date', y='DSRE%', title="DSRE% Efficiency"), use_container_width=True)
+            st.plotly_chart(px.area(df, x='Date', y='Total Dilution', title="Total Dilution Volume", color='Well Name'), use_container_width=True, color='Well Name')
+            st.plotly_chart(px.line(df, x='Date', y='DSRE%', title="DSRE% Efficiency", color='Well Name'), use_container_width=True, color='Well Name')
 
         with tab3:
-            st.plotly_chart(px.line(df, x='Date', y='Mud Cutting Ratio', title="Mud Cutting Ratio"), use_container_width=True)
-            st.plotly_chart(px.bar(df, x='Date', y='Solid Generate', title="Solid Generation Volume"), use_container_width=True)
+            st.plotly_chart(px.line(df, x='Date', y='Mud Cutting Ratio', title="Mud Cutting Ratio", color='Well Name'), use_container_width=True, color='Well Name')
+            st.plotly_chart(px.bar(df, x='Date', y='Solid Generate', title="Solid Generation Volume", color='Well Name'), use_container_width=True, color='Well Name')
 
         with tab4:
             st.subheader("🧠 Operational Insights")
