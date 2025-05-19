@@ -101,8 +101,10 @@ if uploaded_files:
         df['GPM Total'] = df[['Pump 1 GPM', 'Pump 2 GPM', 'Pump 3 GPM']].sum(axis=1)
         df['API Screen'] = df['API Screen'].apply(to_float)
         df['GPM/Screen'] = df['GPM Total'] / df['Screen Count'].replace(0, 1)
+        df['Dilution vs SCE Ratio'] = df['Total Dilution'] / df['Total SCE'].replace(0, 1)
         df['Top Deck Wear'] = (df['GPM Total'] * df['LGS%']) / df['API Screen'].replace(0, 100)
         df['Bottom Deck Wear'] = (df['GPM/Screen'] * 0.8).clip(upper=100)
+        df['Dilution vs SCE Ratio'] = df['Total Dilution'] / df['Total SCE'].replace(0, 1)
         df['API Screen'] = df['API Screen'].apply(to_float)
 
         st.dataframe(df)
@@ -118,6 +120,15 @@ if uploaded_files:
             'Bottom Deck Wear': 'mean'
         }).round(2).reset_index()
         st.dataframe(summary)
+
+        st.subheader("📌 Wear Benchmark Flags")
+        flagged = df[['Date', 'Well Name', 'Top Deck Wear', 'Bottom Deck Wear', 'API Screen', 'Screen Count']]
+        flagged['Top Deck Status'] = pd.cut(flagged['Top Deck Wear'], bins=[-1, 2.5, 4.0, 999], labels=["✅ Good", "⚠️ Caution", "🚨 Critical"])
+        flagged['Bottom Deck Status'] = pd.cut(flagged['Bottom Deck Wear'], bins=[-1, 2.0, 3.5, 999], labels=["✅ Good", "⚠️ Caution", "🚨 Critical"])
+        st.dataframe(flagged)
+
+        st.subheader("📊 Statistical Summary (Key Metrics)")
+        st.dataframe(df[['ROP', 'DSRE%', 'LGS%', 'Top Deck Wear', 'Dilution vs SCE Ratio']].describe().T[['mean', 'std', 'min', 'max']].round(2))
 
         tab1, tab2, tab3, tab4, tab5 = st.tabs(["ROP & Flow", "Dilution", "Solids", "Recommendations", "Combined"])
 
