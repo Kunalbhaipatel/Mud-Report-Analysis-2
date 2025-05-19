@@ -3,6 +3,7 @@ import fitz  # PyMuPDF
 import re
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
@@ -38,9 +39,9 @@ def extract_info_from_pdf(file):
     data['Ave Temp'] = safe_search(r"Fl Temp\s+([\d.]+)", text)
     data['PV'] = safe_search(r"PV\s+@.*?([\d.]+)", text)
     data['YP'] = safe_search(r"YP\s+lb/100ft²\s+([\d.]+)", text)
-    data['Pump 1 GPM'] = safe_search(r"Pump 1.*?gpm\s+([\d.]+)", text)
-    data['Pump 2 GPM'] = safe_search(r"Pump 2.*?gpm\s+([\d.]+)", text)
-    data['Pump 3 GPM'] = safe_search(r"Pump 3.*?gpm\s+([\d.]+)", text)
+    data['Pump 1 GPM'] = safe_search(r"PZ 11 Pump 1.*?gpm\s+([\d.]+)", text)
+    data['Pump 2 GPM'] = safe_search(r"PZ 11 Pump 2.*?gpm\s+([\d.]+)", text)
+    data['Pump 3 GPM'] = safe_search(r"PZ 11 Pump 3.*?gpm\s+([\d.]+)", text)
     data['API Screen'] = safe_search(r"API\s+Mesh\s+([\d]+)", text)
     data['Screen Count'] = safe_search(r"Screen Count\s+([\d]+)", text)
     return data
