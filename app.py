@@ -80,6 +80,12 @@ if uploaded_files:
 
     if records:
         df = pd.DataFrame(records)
+
+        with st.sidebar:
+            st.header("🔍 Well Filter")
+            well_options = df['Well Name'].dropna().unique().tolist()
+            selected_wells = st.multiselect("Select Well(s)", well_options, default=well_options)
+            df = df[df['Well Name'].isin(selected_wells)]
         df['Date'] = pd.to_datetime(df['Date'])
         df.sort_values('Date', inplace=True)
 
