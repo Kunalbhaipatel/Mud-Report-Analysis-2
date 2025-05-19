@@ -91,7 +91,9 @@ if uploaded_files:
         df['Mud Cutting Ratio'] = df['LGS%'] / df['Total Circ'] * 100
         df['Solid Generate'] = df['LGS%'] * df['Total Circ'] / 100
         df['GPM Total'] = df[['Pump 1 GPM', 'Pump 2 GPM', 'Pump 3 GPM']].sum(axis=1)
+        df['API Screen'] = df['API Screen'].apply(to_float)
         df['GPM/Screen'] = df['GPM Total'] / df['Screen Count'].replace(0, 1)
+        df['API Screen'] = df['API Screen'].apply(to_float)
 
         st.dataframe(df)
 
@@ -123,9 +125,10 @@ if uploaded_files:
                 st.markdown("- 🚨 High SCE: evaluate discard routes and treatment.")
 
         with tab5:
-            st.plotly_chart(px.line(df, x='Date', y=['PV', 'YP', 'GPM Total'], title="PV, YP, Total GPM"), use_container_width=True)
 
-        with st.expander("📉 Shaker Screen Wear (Simulated)"):
-            df['Screen Wear Index'] = ((df['LGS%'] * df['GPM Total']) / df['API Screen'].replace(0, 100)).clip(upper=150)
-            fig = px.line(df, x='Date', y='Screen Wear Index', color='Well Name', title='Shaker Screen Wear Over Time (Estimated)')
-            st.plotly_chart(fig, use_container_width=True)
+        fig = go.Figure()
+        fig.add_trace(go.Bar(x=df['Date'], y=df['GPM Total'], name='GPM Total', marker_color='indianred'))
+        fig.add_trace(go.Scatter(x=df['Date'], y=df['PV'], name='PV', mode='lines+markers', line=dict(color='blue')))
+        fig.add_trace(go.Scatter(x=df['Date'], y=df['YP'], name='YP', mode='lines+markers', line=dict(color='green')))
+        fig.update_layout(title='PV, YP and GPM Total (Combo View)', yaxis_title='Value', barmode='overlay')
+        st.plotly_chart(fig, use_container_width=True)
