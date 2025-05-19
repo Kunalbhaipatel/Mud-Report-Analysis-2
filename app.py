@@ -77,6 +77,17 @@ if uploaded_files:
         df['Date'] = pd.to_datetime(df['Date'])
         df.sort_values('Date', inplace=True)
 
+        with st.sidebar:
+            st.header("🔍 Filters")
+            well_options = df['Well Name'].dropna().unique().tolist()
+            selected_wells = st.multiselect("Select Well(s)", well_options, default=well_options)
+            date_range = st.date_input("Select Date Range", [df['Date'].min(), df['Date'].max()])
+
+        df = df[df['Well Name'].isin(selected_wells)]
+        df = df[(df['Date'] >= pd.to_datetime(date_range[0])) & (df['Date'] <= pd.to_datetime(date_range[1]))]
+        df['Date'] = pd.to_datetime(df['Date'])
+        df.sort_values('Date', inplace=True)
+
         st.success("✅ Data Extracted!")
         st.dataframe(df)
 
