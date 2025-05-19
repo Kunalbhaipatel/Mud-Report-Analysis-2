@@ -2,7 +2,7 @@ import streamlit as st
 import fitz  # PyMuPDF
 import re
 import pandas as pd
-import altair as alt
+import plotly.express as px
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
@@ -59,7 +59,7 @@ def simulate_label(row):
         to_float(row['PV']) > 35
     )
 
-st.title("📄 Drilling Fluid Report Extractor + KPI Dashboard + ML Degradation Predictor")
+st.title("📊 Drilling Fluid Dashboard with Smart Recommendations")
 
 uploaded_files = st.file_uploader("Upload Daily Drilling Fluid PDF(s)", type="pdf", accept_multiple_files=True)
 
@@ -76,27 +76,15 @@ if uploaded_files:
         df = pd.DataFrame(records)
         df['Date'] = pd.to_datetime(df['Date'])
         df.sort_values('Date', inplace=True)
+
         st.success("✅ Data Extracted!")
         st.dataframe(df)
 
-        # --- Filter Controls ---
-        with st.sidebar:
-            st.header("🔍 Filters")
-            well_options = df['Well Name'].dropna().unique().tolist()
-            selected_wells = st.multiselect("Select Well(s)", well_options, default=well_options)
-            date_range = st.date_input("Select Date Range", [df['Date'].min(), df['Date'].max()])
-
-        df = df[df['Well Name'].isin(selected_wells)]
-        df = df[(df['Date'] >= pd.to_datetime(date_range[0])) & (df['Date'] <= pd.to_datetime(date_range[1]))]
-
-
-        df['Degraded'] = df.apply(simulate_label, axis=1)
-
-        # Convert necessary fields to float
+        # Convert fields
         for col in ['LGS%', 'PV', 'YP', 'Mud Flow', 'Losses', 'Base Oil', 'Water', 'Chemical', 'Total Circ', 'Drilling Hrs', 'MD (ft)']:
             df[col] = df[col].apply(to_float)
 
-        # Calculate derived KPIs
+        df['Degraded'] = df.apply(simulate_label, axis=1)
         df['Total SCE'] = df['Losses']
         df['Discard Ratio'] = df['Total SCE'] / df['Total Circ']
         df['Total Dilution'] = df[['Base Oil', 'Water', 'Chemical']].sum(axis=1)
@@ -107,67 +95,38 @@ if uploaded_files:
         df['Mud Cutting Ratio'] = df['LGS%'] / df['Total Circ'] * 100
         df['Solid Generate'] = df['LGS%'] * df['Total Circ'] / 100
 
-        # ML Model
-        features = ['LGS%', 'PV', 'YP', 'Mud Flow', 'Losses']
-        X = df[features]
-        y = df['Degraded']
+        st.subheader("📈 Interactive KPI Charts")
+        tab1, tab2, tab3, tab4 = st.tabs(["ROP & Rheology", "Dilution & Losses", "Solids & Screens", "🧠 Recommendations"])
 
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
-        clf = RandomForestClassifier()
-        clf.fit(X_train, y_train)
+        with tab1:
+            st.plotly_chart(px.line(df, x='Date', y='ROP', markers=True, title="ROP Over Time"), use_container_width=True)
+            st.plotly_chart(px.line(df, x='Date', y='Mud Flow', markers=True, title="Mud Flow Rate"), use_container_width=True)
 
-        df['Predicted Degradation'] = clf.predict(X)
+        with tab2:
+            st.plotly_chart(px.area(df, x='Date', y='Total Dilution', title="Total Dilution Volume"), use_container_width=True)
+            st.plotly_chart(px.line(df, x='Date', y='DSRE%', title="DSRE% Efficiency"), use_container_width=True)
 
-        st.subheader("🧠 ML-Based Degradation Prediction")
-        st.dataframe(df[['Date', 'LGS%', 'PV', 'YP', 'Losses', 'Predicted Degradation']])
+        with tab3:
+            st.plotly_chart(px.line(df, x='Date', y='Mud Cutting Ratio', title="Mud Cutting Ratio"), use_container_width=True)
+            st.plotly_chart(px.bar(df, x='Date', y='Solid Generate', title="Solid Generation Volume"), use_container_width=True)
 
-        st.text("📊 Model Performance on Holdout Data")
-        y_pred = clf.predict(X_test)
-        st.text(classification_report(y_test, y_pred))
+        with tab4:
+            st.subheader("🧠 Operational Insights")
+            recs = []
 
-        # Charts in tabs
-        st.subheader("📊 KPI Dashboard")
-        tab1, tab2, tab3 = st.tabs(["Performance KPIs", "Dilution & Losses", "Solids"])
+            if df['LGS%'].mean() > 10 and df['Mud Cutting Ratio'].mean() > 3:
+                recs.append("🔺 Use finer shaker screens (API 140+) to control LGS overflow.")
+            if df['DSRE%'].mean() < 50:
+                recs.append("⚠️ Low DSRE%. Check screen seal, replace damaged decks, and verify flowline alignment.")
+            if df['ROP'].mean() < 20:
+                recs.append("📉 Low ROP detected. Inspect screens and shaker vibration settings.")
+            if df['PV'].mean() > 35:
+                recs.append("💧 High PV. Dilution or base oil addition may be needed.")
+            if df['Total SCE'].sum() > 400:
+                recs.append("🚨 High cumulative SCE. Review mud discard sources and treatment schedule.")
 
-        
-    with tab1:    st.altair_chart(alt.Chart(df).mark_line(point=True).encode(
-x='Date:T',
-        y='ROP:Q',
-        tooltip=['Date', 'ROP']
-    ).properties(title="ROP Over Time", height=300), use_container_width=True)
-
-    st.altair_chart(alt.Chart(df).mark_area().encode(
-        x='Date:T',
-        y='Mud Flow:Q',
-        tooltip=['Date', 'Mud Flow']
-    ).properties(title="Mud Flow Trend", height=300), use_container_width=True)
-
-    st.altair_chart(alt.Chart(df).mark_line().encode(
-        x='Date:T',
-        y='Ave Temp:Q',
-        tooltip=['Date', 'Ave Temp']
-    ).properties(title="Average Temperature", height=300), use_container_width=True)
-
-
-        
-    with tab2:    st.altair_chart(alt.Chart(df).mark_bar().encode(
-x='Date:T',
-        y='Total Dilution:Q',
-        tooltip=['Date', 'Total Dilution']
-    ).properties(title="Total Dilution", height=300), use_container_width=True)
-
-    st.altair_chart(alt.Chart(df).mark_bar().encode(
-        x='Date:T',
-        y='Total SCE:Q',
-        tooltip=['Date', 'Total SCE']
-    ).properties(title="Total SCE", height=300), use_container_width=True)
-
-    st.altair_chart(alt.Chart(df).mark_line().encode(
-        x='Date:T',
-        y='DSRE%:Q',
-        tooltip=['Date', 'DSRE%']
-    ).properties(title="DSRE%", height=300), use_container_width=True)
-
-
-    with tab3:            st.area_chart(df.set_index('Date')[['Solid Generate', 'Mud Cutting Ratio']])
-        # Download
+            if not recs:
+                st.success("✅ System operating within optimal thresholds.")
+            else:
+                for r in recs:
+                    st.markdown(f"- {r}")
